@@ -1,77 +1,106 @@
-import requests
-import os
-from urllib.parse import urlparse
-import hashlib
+# ================================
+# Import Libraries
+# ================================
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.datasets import load_iris
 
-def get_filename(url, content_type):
-    """Extract filename from URL or generate one"""
-    parsed_url = urlparse(url)
-    filename = os.path.basename(parsed_url.path)
+# ================================
+# Task 1: Load and Explore Dataset
+# ================================
 
-    if not filename:
-        ext = content_type.split("/")[-1]
-        filename = f"downloaded_image.{ext}"
+try:
+    # Load Iris dataset
+    iris = load_iris()
+    df = pd.DataFrame(iris.data, columns=iris.feature_names)
+    df["species"] = iris.target
+    df["species"] = df["species"].map({
+        0: "setosa",
+        1: "versicolor",
+        2: "virginica"
+    })
+except Exception as e:
+    print("Error loading dataset:", e)
 
-    return filename
+# Display first few rows
+print("\nFirst 5 rows of the dataset:")
+print(df.head())
 
+# Check dataset structure
+print("\nDataset Information:")
+print(df.info())
 
-def is_duplicate(content, folder):
-    """Check for duplicate images using hash"""
-    file_hash = hashlib.md5(content).hexdigest()
+# Check for missing values
+print("\nMissing Values:")
+print(df.isnull().sum())
 
-    for file in os.listdir(folder):
-        path = os.path.join(folder, file)
-        if os.path.isfile(path):
-            with open(path, "rb") as f:
-                if hashlib.md5(f.read()).hexdigest() == file_hash:
-                    return True
-    return False
+# ================================
+# Data Cleaning
+# ================================
+# Iris dataset has no missing values,
+# but this is included for completeness
+df = df.dropna()
 
+# ================================
+# Task 2: Basic Data Analysis
+# ================================
 
-def main():
-    print("Welcome to the Ubuntu Image Fetcher")
-    print("A tool for mindfully collecting images from the web\n")
+# Basic statistics
+print("\nBasic Statistics:")
+print(df.describe())
 
-    urls = input("Enter image URL(s) separated by commas:\n").split(",")
+# Group by species and calculate mean
+grouped_means = df.groupby("species").mean()
+print("\nMean values grouped by species:")
+print(grouped_means)
 
-    os.makedirs("Fetched_Images", exist_ok=True)
+# ================================
+# Task 3: Data Visualization
+# ================================
 
-    for url in urls:
-        url = url.strip()
+# 1️⃣ Line Chart (Trend example)
+plt.figure()
+plt.plot(df.index, df["sepal length (cm)"])
+plt.title("Sepal Length Trend Across Samples")
+plt.xlabel("Sample Index")
+plt.ylabel("Sepal Length (cm)")
+plt.show()
 
-        try:
-            response = requests.get(url, timeout=10, stream=True)
-            response.raise_for_status()
+# 2️⃣ Bar Chart (Average petal length per species)
+plt.figure()
+grouped_means["petal length (cm)"].plot(kind="bar")
+plt.title("Average Petal Length by Species")
+plt.xlabel("Species")
+plt.ylabel("Petal Length (cm)")
+plt.show()
 
-            # Check content type
-            content_type = response.headers.get("Content-Type", "")
-            if not content_type.startswith("image/"):
-                print(f"✗ Skipped (not an image): {url}")
-                continue
+# 3️⃣ Histogram (Distribution of sepal length)
+plt.figure()
+plt.hist(df["sepal length (cm)"], bins=15)
+plt.title("Distribution of Sepal Length")
+plt.xlabel("Sepal Length (cm)")
+plt.ylabel("Frequency")
+plt.show()
 
-            content = response.content
+# 4️⃣ Scatter Plot (Sepal length vs Petal length)
+plt.figure()
+sns.scatterplot(
+    data=df,
+    x="sepal length (cm)",
+    y="petal length (cm)",
+    hue="species"
+)
+plt.title("Sepal Length vs Petal Length")
+plt.xlabel("Sepal Length (cm)")
+plt.ylabel("Petal Length (cm)")
+plt.legend(title="Species")
+plt.show()
 
-            # Prevent duplicates
-            if is_duplicate(content, "Fetched_Images"):
-                print(f"⚠ Duplicate skipped: {url}")
-                continue
-
-            filename = get_filename(url, content_type)
-            filepath = os.path.join("Fetched_Images", filename)
-
-            with open(filepath, "wb") as f:
-                f.write(content)
-
-            print(f"✓ Successfully fetched: {filename}")
-            print(f"✓ Image saved to {filepath}\n")
-
-        except requests.exceptions.RequestException as e:
-            print(f"✗ Connection error for {url}: {e}")
-        except Exception as e:
-            print(f"✗ Unexpected error for {url}: {e}")
-
-    print("Connection strengthened. Community enriched.")
-
-
-if __name__ == "__main__":
-    main()
+# ================================
+# Observations (Printed)
+# ================================
+print("\nFindings & Observations:")
+print("- Virginica has the largest average petal length and width.")
+print("- Setosa has noticeably smaller petal measurements.")
+print("- Petal features separate species more clearly than sepal features.")
